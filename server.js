@@ -8,6 +8,7 @@ const GridFsStorage = require('multer-gridfs-storage');
 const Grid = require('gridfs-stream');
 const methodOverride = require('method-override');
 
+
 const app = express();
 
 // Middleware
@@ -16,17 +17,21 @@ app.use(methodOverride('_method'));
 
 // Connecting to MongoDB databases
 const mongoURI = 'mongodb+srv://James-Evans:12345@cluster0-tgpqk.mongodb.net/photos?retryWrites=true&w=majority';
+const conn = mongoose.createConnection(mongoURI, { useNewUrlParser: true }, { useUnifiedTopology: true });
 
-const conn = mongoose.createConnection(mongoURI, { useNewUrlParser: true });
-
-
-// Init gfs
-let gfs;
+let gfs, fgfs, egfs, mgfs, rgfs;
 
 conn.once('open', function () {
     gfs = Grid(conn.db, mongoose.mongo);
-    gfs.collection('uploads');
-  })
+    // pgfs.collection('portraits');
+    // pgfs.collection('portraits');
+    // fgfs.collection('family');
+    // egfs.collection('events');
+    // mgfs.collection('misc');
+    // rgfs.collection('recent');
+
+})
+
 
 // Create storage engine for each category of images
 const storage = new GridFsStorage({
@@ -104,55 +109,43 @@ app.post('/uploadrecent', rUpload.array('files'), (req, res) => {
     res.send(req.files);
 });
 
-// GET request to see all files that have been uploaded to MongoDB
-app.get('/files', (req, res) => {
+// GET request to see all photos of a specified collection that have been uploaded to MongoDB
+app.get('/photos/:collection', (req, res) => {  
+    gfs.collection(req.params.collection);
     gfs.files.find().toArray((err, files) => {
-        //Check if files exist
+        //Check if files exist  
         if(!files || files.length === 0) {
             return res.status(404).json({
-                err: 'No files exist'
-            });
+                err: req.params.collection
+            }); 
         }
-
         // Files exist
         return res.json(files);
     });
 });
 
-// GET request to see all files of a certain type
-app.get('/files/:filetype', (req, res) => {
-    gfs.files.find({filetype: req.params.filetype}, (err, file) => {
-        // Checking if file exists
-        if(!file || file.length === 0) {
-            return res.status(404).json({
-                err: 'No such file exists'
-            });
-        }
-    });
-});
-
 // GET request to see all files of a certain type and display them
-app.get('/image/:filename', (req, res) => {
-    gfs.files.findOne({filename: req.params.filename}, (err, file) => {
-        // Checking if file exists
-        if(!file || file.length === 0) {
-            return res.status(404).json({
-                err: 'No such file exists'
-            });
-        }
+// app.get('/image/:filename', (req, res) => {
+//     gfs.files.findOne({filename: req.params.filename}, (err, file) => {
+//         // Checking if file exists
+//         if(!file || file.length === 0) {
+//             return res.status(404).json({
+//                 err: 'No such file exists'
+//             });
+//         }
 
-        if(file.contentType === 'image/jpdeg' || file.contentType === 'imamge/png') {
-            // Read output to browser
-            const readstream = gfs.createReadStream(file.filename);
-            readstream.pipe(res);
-        }
-        else {
-            res.status(404).json({
-                err: 'not an image'
-            });
-        }
-    });
-});
+//         if(file.contentType === 'image/jpdeg' || file.contentType === 'imamge/png') {
+//             // Read output to browser
+//             const readstream = gfs.createReadStream(file.filename);
+//             readstream.pipe(res);
+//         }
+//         else {
+//             res.status(404).json({
+//                 err: 'not an image'
+//             });
+//         }
+//     });
+// });
 
 
 const port = 3000;

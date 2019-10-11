@@ -32,7 +32,7 @@ const storage = new GridFsStorage({
     }
  });
 
- var upload = multer({storage: storage})
+var upload = multer({storage: storage})
 
 // Uploading multiple images
 app.post('/uploadimage/:id', upload.array('files'), (req, res) => {
@@ -42,6 +42,15 @@ app.post('/uploadimage/:id', upload.array('files'), (req, res) => {
     res.send(req.files);
 })
 
+// Update mongoDB with altered album
+// app.post('/savealbum/:id', (req, res) => {
+//     gfs.collection('media').insert(req.body, (err, result) => {
+//         if(err) return console.log(err)
+
+//         console.log('saved to database')
+//     })
+// })
+
 // Get all images referring to the portraits metadata id
 app.get('/images/:album_id', (req, res) => {
     gfs.collection('media');
@@ -49,7 +58,7 @@ app.get('/images/:album_id', (req, res) => {
         //Check if files exist  
         if(!files || files.length === 0) {
             return res.status(404).json({
-                err: req.params.album_id
+                err: 'no files found'
             }); 
         }
         // Files exist
@@ -57,20 +66,55 @@ app.get('/images/:album_id', (req, res) => {
     });
 });
 
-// DELETE request to find all files of a certain type and delete them all
-// app.delete('/delete/:collection', (req, res) => {
-//     gfs.collection(req.params.collection);
-//     gfs.files.find.delete((err, files) => {
-//         //Check if files exist  
-//         if(!files || files.length === 0) {
-//             return res.status(404).json({
-//                 err: req.params.collection
-//             }); 
-//         }
-//         // Files exist
-//         return res.json(files);
-//     })
-// })
+// GET request to see all files of a certain type and display them
+app.get('/images/:album_id/:filename', (req, res) => {
+    gfs.collection('media');
+    gfs.files.findOne({metadata: req.params.album_id, filename: req.params.filename}, (err, file) => {
+        // Checking if file exists
+        if(!file || file.length === 0) {
+            return res.status(404).json({
+                err: 'No such file exists'
+            });
+        }
+
+        if(file.contentType === 'image/jpeg' || file.contentType === 'image/png') {
+            // Read output to browser
+            const readstream = gfs.createReadStream(file.filename);
+            readstream.pipe(res);
+        }
+        else {
+            res.status(404).json({
+                err: 'not an image'
+            });
+        }
+    });
+});
+
+// Get all images referring to the portraits metadata id
+app.get('/images', (req, res) => {
+    gfs.collection('media');
+    gfs.files.find().toArray((err, files) => {
+        //Check if files exist  
+        if(!files || files.length === 0) {
+            return res.status(404).json({
+                err: 'no files found'
+            }); 
+        }
+        // Files exist
+        return res.json(files);
+    });
+});
+
+//DELETE request to find all files of a certain type and delete them all
+app.delete('/delete/:album_id', (req, res) => {
+    gfs.collection('media');
+    gfs.files.remove({metadata: req.params.album_id}, (err, files) => {
+        if (err) console.log(err);
+        console.log('success'); 
+
+        return res.json({message: 'files deleted'})
+      });
+})
 
 // DELETE request to find one file and delete
 app.delete('/delete/:filename', (req, res) => {

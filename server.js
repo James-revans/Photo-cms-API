@@ -1,177 +1,111 @@
-// const express = require('express');
-// const bodyParser = require('body-parser');
-// const path = require('path');
-// const crypto = require('crypto');
-// const mongoose = require('mongoose');
-// const multer = require('multer');
-// const GridFsStorage = require('multer-gridfs-storage');
-// const Grid = require('gridfs-stream');
-// const methodOverride = require('method-override');
+const express = require('express')
+const bodyParser = require('body-parser')
+const mongoose = require('mongoose')
+const multer = require('multer')
+const cloudinary = require('cloudinary');
+const cloudinaryStorage = require('multer-storage-cloudinary');
+
+var app = express();
+app.use(bodyParser.json());
+app.use(require('cors')());
 
 
-// const app = express();
+// connecting to mongodb database
+const mongoURI = 'mongodb+srv://James-Evans:12345@cluster0-tgpqk.mongodb.net/SGPhotos?retryWrites=true&w=majority';
+mongoose.connect(mongoURI, { useNewUrlParser: true }, { useUnifiedTopology: true });
+var db = mongoose.connection;
 
-// // Middleware
-// app.use(bodyParser.json());
-// app.use(methodOverride('_method'));
+// cloudinary config settings
+cloudinary.config({
+    cloud_name: 'savanna-photos', 
+    api_key: '153863721185536', 
+    api_secret: 'hzbrXBu5uP0wPiN2GkG_KxZFE_8' 
+})
 
-// // Connecting to MongoDB databases
-// const mongoURI = 'mongodb+srv://James-Evans:12345@cluster0-tgpqk.mongodb.net/photos?retryWrites=true&w=majority';
-// const conn = mongoose.createConnection(mongoURI, { useNewUrlParser: true }, { useUnifiedTopology: true });
+// cloudinary storage engine
+var storage = cloudinaryStorage({
+    cloudinary,
+    folder: 'media',
+    allowedFormats: ['jpg', 'png'],
+    filename: function(req, file, cb) {
+        cb(null, file.originalname)
+      }
+})
 
-// let gfs, fgfs, egfs, mgfs, rgfs;
+const upload = multer({ storage: storage });
 
-// conn.once('open', function () {
-//     gfs = Grid(conn.db, mongoose.mongo);
-//     // pgfs.collection('portraits');
-//     // pgfs.collection('portraits');
-//     // fgfs.collection('family');
-//     // egfs.collection('events');
-//     // mgfs.collection('misc');
-//     // rgfs.collection('recent');
+// POST request to post the uploaded image to be hosted on cloudinary as well as uploading the image url to mongodb
+app.post('/uploadimage/:album_id', upload.array('files'), (req, res) => {
+    req.files.forEach(file => {
+        file.album = req.params.album_id
+        const path = file.path
+        const uniqueFilename = new Date().toISOString()
+    
+        cloudinary.uploader.upload(
+          path,
+          { public_id: `media/${uniqueFilename}`, tags: `media` }, // directory and tags are optional
+          function(err, image) {
+            if (err) return res.send(err)
+            // console.log('file uploaded to Cloudinary')
+            // remove file from server
+            const fs = require('fs')
+            fs.unlinkSync(path)
+            // return image details
+            res.json(image)
+          }
+        )
+        // Uploading the image url and the album it belongs to, to mongodb
+        db.collection('media').insertOne(
+            {image_url: file.url, album: file.album}, (err, result) => {
+            if(err) return console.log(err)
+    
+            console.log('saved to database')
+        })
 
-// })
+    }) 
+    res.json(req.files)
+});
 
+// POST request to 'save' the album to mongodb
+// Once user clicks the 'save album' button, the current album array will be uploaded to mongodb
+// (the old list will be deleted immediately after with a delete request)
+app.post('/savealbum', (req, res) => {
+    req.body.forEach(item => {
+        db.collection('media').insertOne(
+            item, (err, result) => {
+            if(err) return console.log(err)
+    
+            console.log('saved to database')
+        })
+    })
 
-// // Create storage engine for each category of images
-// const storage = new GridFsStorage({
-//     url: mongoURI,
-//     file: (req, file) => {
-//         return {
-//           bucketName: 'portraits'
-//         };
-//     }
-//  });
-// const pUpload = multer({ storage });
+})
 
-// const fStorage = new GridFsStorage({
-//     url: mongoURI,
-//     file: (req, file) => {
-//         return {
-//           bucketName: 'family'
-//         };
-//     }
-//  });
-// const fUpload = multer({ storage: fStorage });
+// GET request to retrieve the image file from mongodb, containing the album its from and the image url
+app.get('/images/:album_id', (req, res) => {
+    db.collection('media').find({album: req.params.album_id}).toArray((err, files) => {
+        //Check if files exist  
+        if(!files || files.length === 0) {
+            return res.status(404).json({
+                err: 'no files found'
+            }); 
+        }
+        // Files exist
+        return res.json(files);
+    });
+})
 
-// const eStorage = new GridFsStorage({
-//     url: mongoURI,
-//     file: (req, file) => {
-//         return {
-//           bucketName: 'events'
-//         };
-//     }
-//  });
-// const eUpload = multer({ storage: eStorage });
+// DELETE request to delete all items from an album
+// this will be called when the client saves their album
+// all files in that album will be deleted and then replaced with the new altered album
+app.delete('/delete/:album_id', (req, res) => {
+    db.collection('media').deleteMany({album: req.params.album_id}, err => {
+        if (err) console.log(err);
+        console.log('success'); 
 
-// const mStorage = new GridFsStorage({
-//     url: mongoURI,
-//     file: (req, file) => {
-//         return {
-//           bucketName: 'misc'
-//         };
-//     }
-//  });
-// const mUpload = multer({ storage: mStorage });
-
-// const rStorage = new GridFsStorage({
-//     url: mongoURI,
-//     file: (req, file) => {
-//         return {
-//           bucketName: 'recent'
-//         };
-//     }
-//  });
-// const rUpload = multer({ storage: rStorage });
-
-// // POST request will upload file to MongoDB
-// app.post('/uploadportraits', pUpload.array('files'), (req, res) => {
-//     res.send(req.files);
-// });
-
-// // POST images to family
-// app.post('/uploadfamily', fUpload.array('files'), (req, res) => {
-//     res.send(req.files);
-// });
-
-// // POST images to events
-// app.post('/uploadevents', eUpload.array('files'), (req, res) => {
-//     res.send(req.files);
-// });
-
-// // POST images to misc
-// app.post('/uploadmisc', mUpload.array('files'), (req, res) => {
-//     res.send(req.files);
-// });
-
-// // POST images to recent
-// app.post('/uploadrecent', rUpload.array('files'), (req, res) => {
-//     res.send(req.files);
-// });
-
-// // GET request to see all photos of a specified collection that have been uploaded to MongoDB
-// app.get('/photos/:collection', (req, res) => {  
-//     gfs.collection(req.params.collection);
-//     gfs.files.find().toArray((err, files) => {
-//         //Check if files exist  
-//         if(!files || files.length === 0) {
-//             return res.status(404).json({
-//                 err: req.params.collection
-//             }); 
-//         }
-//         // Files exist
-//         return res.json(files);
-//     });
-// });
-
-// // GET request to see all files of a certain type and display them
-// app.get('/photos/:collection/:filename', (req, res) => {
-//     gfs.collection(req.params.collection);
-//     gfs.files.findOne({filename: req.params.filename}, (err, file) => {
-//         // Checking if file exists
-//         if(!file || file.length === 0) {
-//             return res.status(404).json({
-//                 err: 'No such file exists'
-//             });
-//         }
-
-//         if(file.contentType === 'image/jpeg' || file.contentType === 'image/png') {
-//             // Read output to browser
-//             const readstream = gfs.createReadStream(file.filename);
-//             readstream.pipe(res);
-//         }
-//         else {
-//             res.status(404).json({
-//                 err: 'not an image'
-//             });
-//         }
-//     });
-// });
-
-// // DELETE request to find all files of a certain type and delete them all
-// // app.delete('/delete/:collection', (req, res) => {
-// //     gfs.collection(req.params.collection);
-// //     gfs.files.find.delete((err, files) => {
-// //         //Check if files exist  
-// //         if(!files || files.length === 0) {
-// //             return res.status(404).json({
-// //                 err: req.params.collection
-// //             }); 
-// //         }
-// //         // Files exist
-// //         return res.json(files);
-// //     })
-// // })
-
-// // DELETE request to find one file and delete
-// app.delete('/delete/:collection/:filename', (req, res) => {
-//     gfs.collection(req.params.collection).remove({filename: req.params.filename}, function (err) {
-//         if (err) console.log(err);
-//         console.log('success'); 
-//       });
-// })
+        return res.json({message: 'file deleted'})
+    })
+})
 
 
-// const port = 3000;
-
-// app.listen(port, () => console.log(`app has started on port ${port}`));
+app.listen(3000, () => console.log('App has started on port 3000'));

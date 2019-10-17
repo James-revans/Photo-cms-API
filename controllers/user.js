@@ -1,34 +1,52 @@
-// Load required packages
-var User = require('../models/user');
+const express = require('express'); 
+const jwt = require('jsonwebtoken');
+const passport = require('passport');
+
+const router = express.Router()
 
 // Create endpoint /api/users for POST
-exports.postUsers = function(req, res) {
+// exports.postUsers =  async (req, res, next) => {
+//   res.json({
+//     message: 'Signup successful',
+//     user: req.user
+//   })
+// }
 
-    User.findOne({username: req.body.username}, function(err, user) {
-        if(err) return res.send(err);
-        if(user) return res.json({ message: 'Sorry, that username already exists.' })
-    })
+
+// Create endpoint for /api/login for POST. Logging in a user
+exports.loginUser = async (req, res, next) => {
+  passport.authenticate('login', async (err, user, info) => {
+    try {
+      if(err || !user) {
+        const error = new Error('An error occured')
+        return next(error)
+      }
+      req.login(user, { session: false }, async (error) => {
+        if(error) return next(error)
+
+        const body = { _id: user._id, email: user.email }
+        
+        // Sign the JWT token and populate the payload with the user email and id
+        const token = jwt.sign({ user: body },'photostoragesecret')
+
+        // Send back the token to the user
+        return res.json({ token })
+      })
+    }
+    catch (error){
+      return next(error)
+    }
+  })(req, res, next)
+}
 
 
-    var user = new User({
-        username: req.body.username,
-        password: req.body.password
-    });
+// // Create endpoint /api/users for GET
+// exports.getUsers = function(req, res) {
+//   User.find(function(err, users) {
+//     if (err)
+//       res.send(err);
 
-    user.save(function(err) {
-        if (err)
-            return res.send(err);
+//     res.json(users);
+//   });
+// };
 
-        res.json({ message: 'New user successfully registered!' });
-    });
-};
-
-// Create endpoint /api/users for GET
-exports.getUsers = function(req, res) {
-    User.find(function(err, users) {
-        if (err)
-        res.send(err);
-
-        res.json(users);
-    });
-};

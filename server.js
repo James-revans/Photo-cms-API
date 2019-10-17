@@ -1,160 +1,131 @@
-const express = require('express');
-const bodyParser = require('body-parser');
-const path = require('path');
-const crypto = require('crypto');
-const mongoose = require('mongoose');
-const multer = require('multer');
-const GridFsStorage = require('multer-gridfs-storage');
-const Grid = require('gridfs-stream');
-const methodOverride = require('method-override');
+const express = require('express')
+const bodyParser = require('body-parser')
+const mongoose = require('mongoose')
+const userController = require('./controllers/user')
+const passport = require('passport')
+const authController = require('./controllers/auth')
+const imageController = require('./controllers/image')
+const jwt = require('jsonwebtoken')
+const cors = require('cors')
 
-const app = express();
+const Image = require('./models/image');
+const multer = require('multer')
+const cloudinary = require('cloudinary');
+const cloudinaryStorage = require('multer-storage-cloudinary');
+require('./controllers/auth');
 
-// Middleware
+
+var app = express();
+app.use(cors());
 app.use(bodyParser.json());
-app.use(methodOverride('_method'));
-
-// Connecting to MongoDB databases
-const mongoURI = 'mongodb+srv://James-Evans:12345@cluster0-tgpqk.mongodb.net/photos?retryWrites=true&w=majority';
-
-const conn = mongoose.createConnection(mongoURI, { useNewUrlParser: true });
+app.use(bodyParser.urlencoded({
+    extended: false
+  }));
 
 
-// Init gfs
-let gfs;
+const router = express.Router()
 
-conn.once('open', function () {
-    gfs = Grid(conn.db, mongoose.mongo);
-    gfs.collection('uploads');
-  })
+// router.get('/', (req, res) => {})
 
-// Create storage engine for each category of images
-const storage = new GridFsStorage({
-    url: mongoURI,
-    file: (req, file) => {
-        return {
-          bucketName: 'portraits'
-        };
-    }
- });
-const pUpload = multer({ storage });
+// connecting to mongodb database
+const mongoURI = 'mongodb+srv://James-Evans:12345@cluster0-tgpqk.mongodb.net/SGPhotos?retryWrites=true&w=majority';
+mongoose.connect(mongoURI, { useNewUrlParser: true }, { useUnifiedTopology: true });
+exports.db = mongoose.connection;
+var db = mongoose.connection;
 
-const fStorage = new GridFsStorage({
-    url: mongoURI,
-    file: (req, file) => {
-        return {
-          bucketName: 'family'
-        };
-    }
- });
-const fUpload = multer({ storage: fStorage });
 
-const eStorage = new GridFsStorage({
-    url: mongoURI,
-    file: (req, file) => {
-        return {
-          bucketName: 'events'
-        };
-    }
- });
-const eUpload = multer({ storage: eStorage });
+// Register all routes with a prefix /api
+app.use('/api', router);   
 
-const mStorage = new GridFsStorage({
-    url: mongoURI,
-    file: (req, file) => {
-        return {
-          bucketName: 'misc'
-        };
-    }
- });
-const mUpload = multer({ storage: mStorage });
-
-const rStorage = new GridFsStorage({
-    url: mongoURI,
-    file: (req, file) => {
-        return {
-          bucketName: 'recent'
-        };
-    }
- });
-const rUpload = multer({ storage: rStorage });
-
-// POST request will upload file to MongoDB
-app.post('/uploadportraits', pUpload.array('files'), (req, res) => {
-    res.send(req.files);
+app.use(function(req, res, next) {
+	res.header("Access-Control-Allow-Origin", "*");
+	res.header("Access-Control-Allow-Methods", "GET,HEAD,OPTIONS,POST,PUT");
+	res.header("Access-Control-Allow-Credentials", "true");
+	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+    next();
 });
 
-// POST images to family
-app.post('/uploadfamily', fUpload.array('files'), (req, res) => {
-    res.send(req.files);
-});
-
-// POST images to events
-app.post('/uploadevents', eUpload.array('files'), (req, res) => {
-    res.send(req.files);
-});
-
-// POST images to misc
-app.post('/uploadmisc', mUpload.array('files'), (req, res) => {
-    res.send(req.files);
-});
-
-// POST images to recent
-app.post('/uploadrecent', rUpload.array('files'), (req, res) => {
-    res.send(req.files);
-});
-
-// GET request to see all files that have been uploaded to MongoDB
-app.get('/files', (req, res) => {
-    gfs.files.find().toArray((err, files) => {
-        //Check if files exist
-        if(!files || files.length === 0) {
-            return res.status(404).json({
-                err: 'No files exist'
-            });
-        }
-
-        // Files exist
-        return res.json(files);
-    });
-});
-
-// GET request to see all files of a certain type
-app.get('/files/:filetype', (req, res) => {
-    gfs.files.find({filetype: req.params.filetype}, (err, file) => {
-        // Checking if file exists
-        if(!file || file.length === 0) {
-            return res.status(404).json({
-                err: 'No such file exists'
-            });
-        }
-    });
-});
-
-// GET request to see all files of a certain type and display them
-app.get('/image/:filename', (req, res) => {
-    gfs.files.findOne({filename: req.params.filename}, (err, file) => {
-        // Checking if file exists
-        if(!file || file.length === 0) {
-            return res.status(404).json({
-                err: 'No such file exists'
-            });
-        }
-
-        if(file.contentType === 'image/jpdeg' || file.contentType === 'imamge/png') {
-            // Read output to browser
-            const readstream = gfs.createReadStream(file.filename);
-            readstream.pipe(res);
-        }
-        else {
-            res.status(404).json({
-                err: 'not an image'
-            });
-        }
-    });
-});
+// // Endpoint that handles uploading and viewing images
+// router.route('/image/:album_id')
+//     // .post(imageController.postImage)
+router.get('/image/:album_id', imageController.getImage);
 
 
-const port = 3000;
+// Endpoint that handles saving the new updated album to mongodb
+router.route('/save/:album_id')
+    .post(passport.authenticate('jwt', {session: false}), imageController.saveImage)
+    .delete(passport.authenticate('jwt', {session: false}), imageController.deleteImage);
 
-app.listen(port, () => console.log(`app has started on port ${port}`));
+// Endpoint that handles registering new users to mongodb
+router.post('/signup', passport.authenticate('signup', {session: false}), async (req, res, next) => {
+    res.json({
+      message: 'Signup successful',
+      user: req.user
+    })
+})
+
+// Endpoint that handles checking if the user exists and handing that user the jwt for access to routes
+router.post('/login', userController.loginUser)
+
+
+
+// cloudinary config settings
+cloudinary.config({
+    cloud_name: 'savanna-photos', 
+    api_key: '153863721185536', 
+    api_secret: 'hzbrXBu5uP0wPiN2GkG_KxZFE_8' 
+})
+
+// cloudinary storage engine
+var storage = cloudinaryStorage({
+    cloudinary,
+    folder: 'media',
+    allowedFormats: ['jpg', 'png'],
+    filename: function(req, file, cb) {
+        cb(null, file.originalname)
+      }
+})
+
+const upload = multer({ storage: storage });
+
+router.post('/image/:album_id', passport.authenticate('jwt', { session : false }), upload.array('files'), (req, res, next) => {
+        db.collection('images').countDocuments({ userId: req.user, album: req.params.album_id })
+        .then(res => {
+            
+            let docCount = res
+            req.files.forEach(file => {
+                var image = new Image()
+                docCount += 1
+    
+                image.image_url = file.url
+                image.album = req.params.album_id
+                image.order = docCount
+                image.userId = req.user
+    
+                const path = file.path
+                const uniqueFilename = new Date().toISOString()
+                
+                cloudinary.uploader.upload(
+                path,
+                { public_id: `media/${uniqueFilename}`, tags: `media` }, // directory and tags are optional
+                function(err, image) {
+                    if (err) return res.send(err)
+                    // console.log('file uploaded to Cloudinary')
+                    // remove file from server
+                    const fs = require('fs')
+                    fs.unlinkSync(path)
+                    // return image details
+                    res.json(image)
+                }
+                )
+                // Uploading the image file to mongodb
+                image.save(err => {
+                    if(err)
+                        res.send(err)
+                })
+            })
+        })
+    return res.json(req.files)
+})
+
+app.listen(3000, () => console.log('App has started on port 3000'));

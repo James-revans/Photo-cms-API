@@ -1,49 +1,45 @@
-// // Load required packages
-// var mongoose = require('mongoose');
-// var bcrypt = require('bcrypt-nodejs');
+// Load required packages
+const mongoose = require('mongoose')
+const bcrypt = require('bcrypt');
+const Schema = mongoose.Schema;
 
-// // Define our user schema
-// var UserSchema = new mongoose.Schema({
-//   username: {
-//     type: String,
-//     unique: true,
-//     required: true
-//   },
-//   password: {
-//     type: String,
-//     required: true
-//   }
-// });
-
-
-// // All of this below is used to hash the newly created password before it is sent off to database
-// // Execute before each user.save() call
-// UserSchema.pre('save', function(callback) {
-//   var user = this;
-
-//   // Break out if the password hasn't changed
-//   if (!user.isModified('password')) return callback();
-
-//   // Password changed so we need to hash it
-//   bcrypt.genSalt(5, function(err, salt) {
-//     if (err) return callback(err);
-
-//     bcrypt.hash(user.password, salt, null, function(err, hash) {
-//       if (err) return callback(err);
-//       user.password = hash;
-//       callback();
-//     });
-//   });
-// });
+const UserSchema = new Schema({
+  email : {
+    type : String,
+    required : true,
+    unique : true
+  },
+  password : {
+    type : String,
+    required : true 
+  }
+});
 
 
-// // function to verify if password entries match
-// UserSchema.methods.verifyPassword = function(password, cb) {
-//     bcrypt.compare(password, this.password, function(err, isMatch) {
-//         if (err) return cb(err);
-//         cb(null, isMatch);
-//     });
-// };
+// All of this below is used to hash the newly created password before it is sent off to database
+// Execute before each user.save() call
+// this function will be called, we'll get the plain text password, hash it and store it.
+UserSchema.pre('save', async function(next){
+  //'this' refers to the current document about to be saved
+  const user = this;
+  //Hash the password with a salt round of 10, the higher the rounds the more secure, but the slower
+  //your application becomes.
+  const hash = await bcrypt.hash(this.password, 10);
+  //Replace the plain text password with the hash and then store it
+  this.password = hash;
+  //Indicates we're done and moves on to the next middleware
+  next();
+});
 
-// // Export the Mongoose model
-// module.exports = mongoose.model('User', UserSchema);
+//We'll use this later on to make sure that the user trying to log in has the correct credentials
+UserSchema.methods.isValidPassword = async function(password){
+  const user = this;
+  //Hashes the password sent by the user for login and checks if the hashed password stored in the 
+  //database matches the one sent. Returns true if it does else false.
+  const compare = await bcrypt.compare(password, user.password);
+  return compare;
+}
+
+const UserModel = mongoose.model('user',UserSchema);
+
+module.exports = UserModel;

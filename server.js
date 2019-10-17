@@ -21,11 +21,11 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({
     extended: false
   }));
-const router = express.Router()
-router.get('/', (req, res) => {})
 
-// Register all routes with a prefix /api
-app.use('/api', router);    
+
+const router = express.Router()
+
+// router.get('/', (req, res) => {})
 
 // connecting to mongodb database
 const mongoURI = 'mongodb+srv://James-Evans:12345@cluster0-tgpqk.mongodb.net/SGPhotos?retryWrites=true&w=majority';
@@ -33,6 +33,17 @@ mongoose.connect(mongoURI, { useNewUrlParser: true }, { useUnifiedTopology: true
 exports.db = mongoose.connection;
 var db = mongoose.connection;
 
+
+// Register all routes with a prefix /api
+app.use('/api', router);   
+
+app.use(function(req, res, next) {
+	res.header("Access-Control-Allow-Origin", "*");
+	res.header("Access-Control-Allow-Methods", "GET,HEAD,OPTIONS,POST,PUT");
+	res.header("Access-Control-Allow-Credentials", "true");
+	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+    next();
+});
 
 // // Endpoint that handles uploading and viewing images
 // router.route('/image/:album_id')

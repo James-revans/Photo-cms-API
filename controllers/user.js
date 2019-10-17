@@ -2,7 +2,7 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const passport = require('passport');
 
-const router = express.Router()
+// const router = express.Router()
 
 // Create endpoint /api/users for POST
 // exports.postUsers =  async (req, res, next) => {
@@ -15,6 +15,7 @@ const router = express.Router()
 
 // Create endpoint for /api/login for POST. Logging in a user
 exports.loginUser = async (req, res, next) => {
+
   passport.authenticate('login', async (err, user, info) => {
     try {
       if(err || !user) {

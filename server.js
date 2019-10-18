@@ -16,7 +16,7 @@ require('./controllers/auth');
 
 
 var app = express();
-app.use(cors());
+app.use(cors({credentials: true, origin: 'http://localhost:8080'}));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({
     extended: false
@@ -37,19 +37,13 @@ var db = mongoose.connection;
 // Register all routes with a prefix /api
 app.use('/api', router);   
 
-app.use(function(req, res, next) {
-	res.header("Access-Control-Allow-Origin", "*");
-	res.header("Access-Control-Allow-Methods", "GET,HEAD,OPTIONS,POST,PUT");
-	res.header("Access-Control-Allow-Credentials", "true");
-	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
-    next();
-});
 
 // // Endpoint that handles uploading and viewing images
 // router.route('/image/:album_id')
 //     // .post(imageController.postImage)
-router.get('/image/:album_id', imageController.getImage);
+router.get('/image/:album_id/:user', imageController.getImage);
 
+router.get('/imageurl/:album_id/:user', imageController.getImageUrls);
 
 // Endpoint that handles saving the new updated album to mongodb
 router.route('/save/:album_id')
@@ -60,7 +54,7 @@ router.route('/save/:album_id')
 router.post('/signup', passport.authenticate('signup', {session: false}), async (req, res, next) => {
     res.json({
       message: 'Signup successful',
-      user: req.user
+      user: req.user    
     })
 })
 
@@ -127,5 +121,6 @@ router.post('/image/:album_id', passport.authenticate('jwt', { session : false }
         })
     return res.json(req.files)
 })
+
 
 app.listen(3000, () => console.log('App has started on port 3000'));

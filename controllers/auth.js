@@ -56,7 +56,6 @@ opts.secretOrKey = 'photostoragesecret'
 opts.jwtFromRequest = ExtractJwt.fromAuthHeaderAsBearerToken()
 
 passport.use(new JwtStrategy(opts, function(jwt_payload, done) {
-    console.log(jwt_payload.user.email)
     // UserModel.findOne({id: jwt_payload.id}, function(err, user) {
         if (!jwt_payload) {
             return done('Error occured. No user found', false);

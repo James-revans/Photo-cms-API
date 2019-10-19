@@ -8,6 +8,7 @@ const imageController = require('./controllers/image')
 const jwt = require('jsonwebtoken')
 const cors = require('cors')
 
+
 const Image = require('./models/image');
 const multer = require('multer')
 const cloudinary = require('cloudinary');
@@ -17,7 +18,7 @@ require('./controllers/auth');
 
 var app = express();
 // app.use(cors({credentials: true, origin: 'http://localhost:8080'}));
-app.use(cors());
+app.use(cors({credentials: true, origin: '*'}));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({
     extended: false
@@ -62,8 +63,6 @@ router.post('/signup', passport.authenticate('signup', {session: false}), async 
 // Endpoint that handles checking if the user exists and handing that user the jwt for access to routes
 router.post('/login', userController.loginUser)
 
-
-
 // cloudinary config settings
 cloudinary.config({
     cloud_name: 'savanna-photos', 
@@ -85,30 +84,31 @@ const upload = multer({ storage: storage });
 
 router.post('/image/:album_id', passport.authenticate('jwt', { session : false }), upload.array('files'), (req, res, next) => {
         db.collection('images').countDocuments({ userId: req.user, album: req.params.album_id })
-        .then(res => {
-            
+        .then(res => {            
             let docCount = res
             req.files.forEach(file => {
                 var image = new Image()
                 docCount += 1
-    
+                
                 image.image_url = file.url
                 image.album = req.params.album_id
                 image.order = docCount
                 image.userId = req.user
     
                 const path = file.path
+
                 const uniqueFilename = new Date().toISOString()
-                
                 cloudinary.uploader.upload(
                 path,
                 { public_id: `media/${uniqueFilename}`, tags: `media` }, // directory and tags are optional
+                
                 function(err, image) {
                     if (err) return res.send(err)
                     // console.log('file uploaded to Cloudinary')
                     // remove file from server
                     const fs = require('fs')
                     fs.unlinkSync(path)
+                    
                     // return image details
                     res.json(image)
                 }
@@ -122,6 +122,6 @@ router.post('/image/:album_id', passport.authenticate('jwt', { session : false }
         })
     return res.json(req.files)
 })
-let PORT = process.env.PORT || 3000
+var port = process.env.port || 3000;
 
-app.listen(PORT);
+app.listen(port);

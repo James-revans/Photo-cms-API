@@ -124,4 +124,4 @@ router.post('/image/:album_id', passport.authenticate('jwt', { session : false }
 })
 
 
-app.listen(3000);
+app.set('port', process.env.PORT || 3000);

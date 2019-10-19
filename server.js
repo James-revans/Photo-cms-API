@@ -122,6 +122,6 @@ router.post('/image/:album_id', passport.authenticate('jwt', { session : false }
         })
     return res.json(req.files)
 })
+let PORT = process.env.PORT || 3000
 
-
-app.set('port', process.env.PORT || 3000);
+app.listen(PORT);

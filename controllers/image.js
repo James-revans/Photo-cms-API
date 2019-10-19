@@ -7,23 +7,23 @@ const passport = require('passport')
 const Image = require('../models/image');
 
 // cloudinary config settings
-cloudinary.config({
-    cloud_name: 'savanna-photos', 
-    api_key: '153863721185536', 
-    api_secret: 'hzbrXBu5uP0wPiN2GkG_KxZFE_8' 
-})
+// cloudinary.config({
+//     cloud_name: 'savanna-photos', 
+//     api_key: '153863721185536', 
+//     api_secret: 'hzbrXBu5uP0wPiN2GkG_KxZFE_8' 
+// })
 
-// cloudinary storage engine
-var storage = cloudinaryStorage({
-    cloudinary,
-    folder: 'media',
-    allowedFormats: ['jpg', 'png'],
-    filename: function(req, file, cb) {
-        cb(null, file.originalname)
-      }
-})
+// // cloudinary storage engine
+// var storage = cloudinaryStorage({
+//     cloudinary,
+//     folder: 'media',
+//     allowedFormats: ['jpg', 'png'],
+//     filename: function(req, file, cb) {
+//         cb(null, file.originalname)
+//       }
+// })
 
-const upload = multer({ storage: storage });
+// const upload = multer({ storage: storage });
 
 // exports.postImage = (upload.array('files'), async (req, res, next) => {
 //     res.json(req.files)
@@ -78,7 +78,21 @@ const upload = multer({ storage: storage });
 
 // GET request to retrieve the image file from mongodb, containing the album its from and the image url
 exports.getImage = ((req, res) => {
-    server.db.collection('images').find({userId: req.body.user, album: req.params.album_id}).sort({'order': +1}).toArray((err, files) => {
+    server.db.collection('images').find({userId: req.params.user, album: req.params.album_id}).sort({'order': +1}).toArray((err, files) => {
+        // Check if files exist  
+        if(!files || files.length === 0) {
+            return res.status(404).json({
+                err: 'no files found'
+            }); 
+        }
+        // Files exist
+
+        return res.json(files);
+    });
+})
+
+exports.getImageUrls = ((req, res) => {
+    server.db.collection('images').find({userId: req.params.user, album: req.params.album_id}).sort({'order': +1}).toArray((err, files) => {
         // Check if files exist  
         if(!files || files.length === 0) {
             return res.status(404).json({
@@ -99,12 +113,14 @@ exports.getImage = ((req, res) => {
 // (the old list will be deleted immediately after with a delete request)
 exports.saveImage = ((req, res) => {
     req.body.forEach(item => {
+        item.userId = req.user
         server.db.collection('images').insertOne(
-            {userId: req.user},
-            item, (err, result) => {
+            item,
+            (err, result) => {
             if(err) return console.log(err)
         })
     })
+    return res.send('files saved')
 })
 
 // DELETE request to delete all items from an album
@@ -113,10 +129,6 @@ exports.saveImage = ((req, res) => {
 exports.deleteImage = ((req, res) => {
     server.db.collection('images').deleteMany({userId: req.user, album: req.params.album_id}, err => {
             if (err) console.log(err);
-            console.log('success'); 
-    
         })
-    
     return res.json({message: 'file deleted'})
-
 })

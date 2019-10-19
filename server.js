@@ -26,7 +26,7 @@ app.use(bodyParser.urlencoded({
 
 const router = express.Router()
 
-// router.get('/', (req, res) => {})
+router.get('/', (req, res) => {})
 
 // connecting to mongodb database
 const mongoURI = 'mongodb+srv://James-Evans:12345@cluster0-tgpqk.mongodb.net/SGPhotos?retryWrites=true&w=majority';
@@ -124,4 +124,4 @@ router.post('/image/:album_id', passport.authenticate('jwt', { session : false }
 })
 
 
-app.listen(3000, () => console.log('App has started on port 3000'));
+app.listen(3000);

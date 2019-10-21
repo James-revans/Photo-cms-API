@@ -28,7 +28,7 @@ app.use(bodyParser.urlencoded({
 
 const router = express.Router()
 
-router.get('/', (req, res) => {})
+// router.get('/', (req, res) => {})
 
 // connecting to mongodb database
 const mongoURI = process.env.MONGO_URI
@@ -144,11 +144,15 @@ router.delete('/delete', passport.authenticate('jwt', { session : false }), (req
     return res.send(req.body.photo)
 })
 
-let PORT = process.env.PORT || 3000;
+app.set('port', (process.env.PORT || 3000));
 
-app.listen(PORT);
-
-http.createServer(onRequest).listen(PORT)
+//For avoidong Heroku $PORT error
+app.get('/', function(request, response) {
+    var result = 'App is running'
+    response.send(result);
+}).listen(app.get('port'), function() {
+    console.log('App is running, server is listening on port ', app.get('port'));
+});
 
 
 

@@ -1,3 +1,4 @@
+require('dotenv').config()
 const express = require('express')
 const bodyParser = require('body-parser')
 const mongoose = require('mongoose')
@@ -7,7 +8,7 @@ const authController = require('./controllers/auth')
 const imageController = require('./controllers/image')
 const jwt = require('jsonwebtoken')
 const cors = require('cors')
-
+const ObjectId = require('mongodb').ObjectID;
 
 const Image = require('./models/image');
 const multer = require('multer')
@@ -30,7 +31,7 @@ const router = express.Router()
 router.get('/', (req, res) => {})
 
 // connecting to mongodb database
-const mongoURI = 'mongodb+srv://James-Evans:12345@cluster0-tgpqk.mongodb.net/SGPhotos?retryWrites=true&w=majority';
+const mongoURI = process.env.MONGO_URI
 mongoose.connect(mongoURI, { useNewUrlParser: true }, { useUnifiedTopology: true });
 exports.db = mongoose.connection;
 var db = mongoose.connection;
@@ -65,9 +66,10 @@ router.post('/login', userController.loginUser)
 
 // cloudinary config settings
 cloudinary.config({
-    cloud_name: 'savanna-photos', 
-    api_key: '153863721185536', 
-    api_secret: 'hzbrXBu5uP0wPiN2GkG_KxZFE_8' 
+
+    cloud_name: process.env.CLOUD_NAME,
+    api_key: process.env.API_KEY,
+    api_secret: process.env.API_SECRET
 })
 
 // cloudinary storage engine
@@ -83,45 +85,69 @@ var storage = cloudinaryStorage({
 const upload = multer({ storage: storage });
 
 router.post('/image/:album_id', passport.authenticate('jwt', { session : false }), upload.array('files'), (req, res, next) => {
-        db.collection('images').countDocuments({ userId: req.user, album: req.params.album_id })
-        .then(res => {            
-            let docCount = res
-            req.files.forEach(file => {
-                var image = new Image()
-                docCount += 1
-                
-                image.image_url = file.url
-                image.album = req.params.album_id
-                image.order = docCount
-                image.userId = req.user
-    
-                const path = file.path
+    db.collection('images').countDocuments({ userId: req.user, album: req.params.album_id })
+    .then(res => {            
+        let docCount = res
+        req.files.forEach(file => {
+            var image = new Image()
+            docCount += 1
+            
+            image.image_url = file.secure_url
+            image.album = req.params.album_id
+            image.order = docCount
+            image.userId = req.user
+            image.public_id = file.public_id
 
-                const uniqueFilename = new Date().toISOString()
-                cloudinary.uploader.upload(
-                path,
-                { public_id: `media/${uniqueFilename}`, tags: `media` }, // directory and tags are optional
+            const path = file.path
+            const uniqueFilename = new Date().toISOString()
+            cloudinary.uploader.upload(
+            path,
+            { public_id: `media/${uniqueFilename}`, tags: `media` }, // directory and tags are optional
+            
+            function(err, image) {
+                if (err) return res.send(err)
+                // console.log('file uploaded to Cloudinary')
+                // remove file from server
+                const fs = require('fs')
+                fs.unlinkSync(path)
                 
-                function(err, image) {
-                    if (err) return res.send(err)
-                    // console.log('file uploaded to Cloudinary')
-                    // remove file from server
-                    const fs = require('fs')
-                    fs.unlinkSync(path)
-                    
-                    // return image details
-                    res.json(image)
-                }
-                )
-                // Uploading the image file to mongodb
-                image.save(err => {
-                    if(err)
-                        res.send(err)
-                })
+                // return image details
+                res.json(image)
+            }
+            )
+            // Uploading the image file to mongodb
+            image.save(err => {
+                if(err)
+                    res.send(err)
             })
         })
-    return res.json(req.files)
+    })
+return res.json(req.files)
 })
+
+
+// DELETE request to delete all items from an album on mongoDB and cloudinary
+// this will be called when the client saves their album
+// all files in that album will be deleted and then replaced with the new altered album
+router.delete('/delete', passport.authenticate('jwt', { session : false }), (req, res) => {
+
+    // check the two passed in arrays for differences. destroy all differing images from cloudinary
+    console.log(req.body.photo)
+    cloudinary.v2.uploader.destroy(req.body.photo.public_id, function(error,result) {
+        console.log(result, error) 
+    });
+
+    db.collection('images').deleteOne({ _id : ObjectId(req.body.photo._id) }, err => {
+        if (err) console.log(err);
+    })
+
+    return res.send(req.body.photo)
+})
+
 let PORT = process.env.PORT || 3000;
 
 app.listen(PORT);
+
+
+
+

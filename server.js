@@ -148,6 +148,8 @@ let PORT = process.env.PORT || 3000;
 
 app.listen(PORT);
 
+http.createServer(onRequest).listen(PORT)
+
 
 
 

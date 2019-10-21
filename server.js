@@ -15,7 +15,7 @@ const multer = require('multer')
 const cloudinary = require('cloudinary');
 const cloudinaryStorage = require('multer-storage-cloudinary');
 require('./controllers/auth');
-
+ 
 
 var app = express();
 // app.use(cors({credentials: true, origin: 'http://localhost:8080'}));

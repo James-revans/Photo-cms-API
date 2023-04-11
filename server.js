@@ -31,8 +31,9 @@ const router = express.Router()
 // router.get('/', (req, res) => {})
 
 // connecting to mongodb database
-const mongoURI = process.env.MONGO_URI
-mongoose.connect(mongoURI, { useNewUrlParser: true }, { useUnifiedTopology: true });
+const mongoURI = process.env.MONGO_URI;
+mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true });
+
 exports.db = mongoose.connection;
 var db = mongoose.connection;
 
@@ -66,7 +67,6 @@ router.post('/login', userController.loginUser)
 
 // cloudinary config settings
 cloudinary.config({
-
     cloud_name: process.env.CLOUD_NAME,
     api_key: process.env.API_KEY,
     api_secret: process.env.API_SECRET
